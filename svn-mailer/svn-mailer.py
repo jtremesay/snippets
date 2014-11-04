@@ -33,9 +33,8 @@ class Commit(object):
         commit_data = commit_data[1:-1]
 
         # Search usefull informations
-        #'r2800 | jeydoux | 2014-10-31 17:29:45 +0100 (Fri, 31 Oct 2014) | 3 lines'
         line_of_informations = commit_data[0]
-        informations = re.search("r\d+ \| (?P<author>\w+) \| .* \| (?P<message_lenght>\d+) lines?", line_of_informations)
+        informations = re.search("r\d+ \| (?P<author>\w+) \| (?P<date1>.+) \((?P<date2>.+)\) \| (?P<message_lenght>\d+) lines?", line_of_informations)
         if informations is None:
             logging.getLogger().warning('Cannot get usefull information')
             return False
@@ -45,6 +44,20 @@ class Commit(object):
         message_lenght = int(informations['message_lenght'])
         self._modified_files = commit_data[2:-(message_lenght + 1)]
         self._message = '\n'.join(commit_data[-message_lenght:])
+        self._date1 = informations['date1']
+        self._date2 = informations['date2']
+
+        self._branch = None
+        if len(self._modified_files) > 0:
+            modified_file = self._modified_files[0]
+            informations = re.search('\s+\w+\s+(?P<path>.*)', modified_file)
+            if informations is not None:
+                informations = informations.groupdict()
+                path = informations['path']
+                if path.startswith('/trunk/'):
+                    self._branch = 'trunk'
+                elif path.startswith('/branches/'):
+                    self._branch = 'branches/' + path.split('/')[2]
 
         return True
 
@@ -78,6 +91,18 @@ class Commit(object):
         """
         return self._message
 
+    def get_branch(self):
+        """
+        @return str Branch
+        """
+        return self._branch
+
+    def get_date1(self):
+        """
+        @return str Date
+        """
+        return self._date1
+
 
 def send_commit_by_mail(config, commit):
     logging.getLogger().info('sending mail...')
@@ -86,8 +111,23 @@ def send_commit_by_mail(config, commit):
     recipient = config.get('Mail', 'to')
     server = config.get('Mail', 'server')
 
-    message = MIMEText('%s\n\nModified files:\n%s' % (commit.get_message(), '\n'.join(commit.get_modified_files())))
-    message['Subject'] = '[SVN Notification] new commit on %s (r%d)' % (config.get('Repository', 'name'), commit.get_revision())
+    message = MIMEText('Repository: %s\nBranch: %s\nRevision: %s\nAuthor: %s\nDate: %s\n\n%s\n\nModified files:\n%s' % (
+        config.get('Repository', 'url'),
+        commit.get_branch(),
+        commit.get_revision(),
+        commit.get_author(),
+        commit.get_date1(),
+        commit.get_message(),
+        '\n'.join(commit.get_modified_files())
+    ))
+
+    message['Subject'] = '[SVN Notification][%s] %s | %s | %s | %s' % (
+        config.get('Repository', 'name'),
+        commit.get_revision(),
+        commit.get_author(),
+        commit.get_date1(),
+        commit.get_branch(),
+    )
     message['From'] = sender
     message['To'] = recipient
 
