@@ -108,7 +108,7 @@ def send_commit_by_mail(config, commit):
     logging.getLogger().info('sending mail...')
 
     sender = config.get('Mail', 'from')
-    recipient = config.get('Mail', 'to')
+    recipients = config.get('Mail', 'to')
     server = config.get('Mail', 'server')
 
     message = MIMEText('Repository: %s\nBranch: %s\nRevision: %s\nAuthor: %s\nDate: %s\n\n%s\n\nModified files:\n%s' % (
@@ -121,18 +121,18 @@ def send_commit_by_mail(config, commit):
         '\n'.join(commit.get_modified_files())
     ))
 
-    message['Subject'] = '[SVN Notification][%s] %s | %s | %s | %s' % (
+    message['Subject'] = '[SVN][%s] %s | %s | %s | %s' % (
         config.get('Repository', 'name'),
         commit.get_revision(),
         commit.get_author(),
-        commit.get_date1(),
+        ' '.join(commit.get_date1().split()[0:2]),
         commit.get_branch(),
     )
     message['From'] = sender
-    message['To'] = recipient
+    message['To'] = recipients
 
     s = smtplib.SMTP(server)
-    s.sendmail(sender, [recipient], message.as_string())
+    s.sendmail(sender, recipients.split(','), message.as_string())
     s.quit()
 
 
