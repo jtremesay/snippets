@@ -58,6 +58,8 @@ class Commit(object):
                     self._branch = 'trunk'
                 elif path.startswith('/branches/'):
                     self._branch = 'branches/' + path.split('/')[2]
+                elif path.startswith('/tags/'):
+                    self._branch = 'tags/' + path.split('/')[2]
 
         return True
 
@@ -110,6 +112,8 @@ def send_commit_by_mail(config, commit):
     sender = config.get('Mail', 'from')
     recipients = config.get('Mail', 'to')
     server = config.get('Mail', 'server')
+    port = config.getint('Mail', 'port')
+    use_ssl = config.getboolean('Mail', 'ssl')
 
     message = MIMEText('Repository: %s\nBranch: %s\nRevision: %s\nAuthor: %s\nDate: %s\n\n%s\n\nModified files:\n%s' % (
         config.get('Repository', 'url'),
@@ -131,7 +135,12 @@ def send_commit_by_mail(config, commit):
     message['From'] = sender
     message['To'] = recipients
 
-    s = smtplib.SMTP(server)
+    if use_ssl:
+        SMTP_class = smtplib.SMTP_SSL
+    else:
+        SMTP_class = smtplib.SMTP
+
+    s = SMTP_class(server, port)
     s.sendmail(sender, recipients.split(','), message.as_string())
     s.quit()
 
