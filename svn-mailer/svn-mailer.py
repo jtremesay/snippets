@@ -114,6 +114,9 @@ def send_commit_by_mail(config, commit):
     server = config.get('Mail', 'server')
     port = config.getint('Mail', 'port')
     use_ssl = config.getboolean('Mail', 'ssl')
+    use_authentification = config.getboolean('Mail', 'use_authentification')
+    login = config.get('Mail', 'login')
+    password = config.get('Mail', 'password')
 
     message = MIMEText('Repository: %s\nBranch: %s\nRevision: %s\nAuthor: %s\nDate: %s\n\n%s\n\nModified files:\n%s' % (
         config.get('Repository', 'url'),
@@ -141,6 +144,8 @@ def send_commit_by_mail(config, commit):
         SMTP_class = smtplib.SMTP
 
     s = SMTP_class(server, port)
+    if use_authentification:
+        s.login(login, password)
     s.sendmail(sender, recipients.split(','), message.as_string())
     s.quit()
 
